@@ -71,12 +71,21 @@ class Buffer:
         return sum(len(d) for d in self.queue) - self.position
 
 
+_no_result = object()
+_state_ended = object()
+
+
+class NoResult(RuntimeError):
+    pass
+
+
 class Consumer:
     def __init__(self, gen):
         self.gen = gen
         self.input = Buffer()
         self.output = Buffer()
         self.state = next(gen)
+        self.res = _no_result
 
     def _wait_before(meth):
         @functools.wraps(meth)
@@ -86,17 +95,37 @@ class Consumer:
             return meth(self, *args, **kwargs)
         return wrapper
 
+    def _next_state(self, value=None):
+        try:
+            self.state = self.gen.send(value)
+        except StopIteration as e:
+            self.state = _state_ended
+            if len(e.args) > 0:
+                self.res = e.args[0]
+
+    @property
+    def has_result(self):
+        return self.res is not _no_result
+
+    def get_result(self):
+        if not self.has_result:
+            raise NoResult
+        return self.res
+
     @_wait_before
     def read(self, nbytes=0):
         while self.state is _get_output:
-            self.state = self.gen.send(self.output)
+            self._next_state(self.output)
         return self.output.read(nbytes)
 
     @_wait_before
     def send(self, data):
         self.input.write(data)
         while self.state is _get_input:
-            self.state = self.gen.send(self.input)
+            self._next_state(self.input)
+
+    def is_consumed(self):
+        return len(self.input) == 0
 
     del _wait_before
 

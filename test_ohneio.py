@@ -35,3 +35,43 @@ def test_echo_n_bytes(nbytes, data_len):
         sent += data_len
 
     assert len(conn.read()) == nbytes
+
+
+def wait_for(s):
+    while True:
+        data = yield from ohneio.peek()
+        pos = data.find(s)
+        if pos >= 0:
+            return pos
+        yield from ohneio.wait()
+
+
+LINE_SEPARATOR = b'\n'
+
+
+@ohneio.protocol
+def line_reader():
+    pos = yield from wait_for(LINE_SEPARATOR)
+    if pos > 0:
+        line = yield from ohneio.read(pos)
+    else:
+        line = b''
+    return line
+
+
+@pytest.mark.parametrize('segment_len', BUFFER_SIZES)
+@pytest.mark.parametrize('input_,expected', [
+    (b'\nhello', b''),
+    (b'hello\n', b'hello'),
+    (b'hello\nhello', b'hello'),
+])
+def test_line_reader(segment_len, input_, expected):
+    conn = line_reader()
+
+    for start in range(0, len(input_) + 1, segment_len):
+        end = start + segment_len
+        segment = input_[start:end]
+        conn.send(segment)
+
+    assert conn.has_result
+    assert conn.get_result() == expected
