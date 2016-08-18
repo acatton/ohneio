@@ -78,55 +78,76 @@ class Consumer:
         self.output = Buffer()
         self.state = next(gen)
 
-    def _communicate(self, value):
-        self.state = self.gen.send(value)
+    def _wait_before(meth):
+        @functools.wraps(meth)
+        def wrapper(self, *args, **kwargs):
+            while self.state is _wait:
+                self.state = next(self.gen)
+            return meth(self, *args, **kwargs)
+        return wrapper
 
+    @_wait_before
     def read(self, nbytes=0):
-        if nbytes == 0:
-            has_enough_bytes = lambda: False
-        else:
-            has_enough_bytes = lambda: nbytes >= len(self.output)
+        while self.state is _get_output:
+            self.state = self.gen.send(self.output)
+        return self.output.read(nbytes)
 
-        acc = io.BytesIO()
-        while self.state is _write and not has_enough_bytes():
-            to_read = max(0, nbytes - acc.tell())
-            acc.write(self.output.read(to_read))
-            self._communicate(self.output)
-
-        return acc.getvalue()
-
+    @_wait_before
     def send(self, data):
         self.input.write(data)
-        while self.state is _read:
-            self._communicate(self.input)
-        while self.state is _wait:
-            self._communicate(None)
+        while self.state is _get_input:
+            self.state = self.gen.send(self.input)
+
+    del _wait_before
 
 
-_read = object()
-_write = object()
-_wait = object()
+class _Action:
+    """Action yielded to the consumer.
+
+    Actions yielded to the consumer could be `object()`, but this custom object
+    with a custom `repr()` ease debugging.
+    """
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return '<Action: {!r}'.format(self)
+
+
+_get_input = _Action('get_input')
+_get_output = _Action('get_output')
+_wait = _Action('wait')
+
+
+def peek(nbytes=0):
+    input_ = yield _get_input
+    return input_.peek(nbytes)
+
+
+def wait():
+    yield _wait
 
 
 def read(nbytes=0):
-    old_len = -1
     while True:
-        input_ = yield _read
-        new_len = len(input_)
+        input_ = yield _get_input
         if len(input_) >= nbytes:
             return input_.read(nbytes)
-        if old_len == new_len:
-            yield _wait
-        old_len = new_len
+        yield _wait
 
 
 def write(data):
-    output = yield _write
+    output = yield _get_output
     output.write(data)
+
+
+def flush():
     while True:
-        output = yield _write
+        output = yield _get_output
         if len(output) == 0:
             return
+        yield _wait
 
 
 def protocol(func):
