@@ -53,11 +53,11 @@ class Buffer:
             acc.seek(0)
             return segments_read, position, acc.read(nbytes)
 
-    def peek(self, nbytes):
+    def peek(self, nbytes=0):
         _, _, data = self._get_data(nbytes)
         return data
 
-    def read(self, nbytes):
+    def read(self, nbytes=0):
         segment_read, position, data = self._get_data(nbytes)
         if position > 0:
             segment_read -= 1
