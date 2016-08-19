@@ -190,14 +190,14 @@ def read(nbytes=0):
         input_ = yield _get_input
         if len(input_) >= nbytes:
             return input_.read(nbytes)
-        yield _wait
+        yield from wait()
 
 
 def write(data):
     output = yield _get_output
     output.write(data)
     while len(output) != 0:
-        yield _wait
+        yield from wait()
         output = yield _get_output
 
 
