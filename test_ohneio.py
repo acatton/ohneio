@@ -53,7 +53,7 @@ def test_echo_n_bytes(nbytes, data_len):
         conn.send(data)
         sent += data_len
 
-    assert len(conn.read()) == nbytes
+    assert len(conn.read(nbytes)) == nbytes
 
 
 def wait_for(s):
