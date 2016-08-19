@@ -93,13 +93,19 @@ class Consumer:
         self.state = next(gen)
         self.res = _no_result
 
-    def _wait_before(meth):
-        @functools.wraps(meth)
-        def wrapper(self, *args, **kwargs):
-            while self.state is _wait:
-                self.state = next(self.gen)
-            return meth(self, *args, **kwargs)
-        return wrapper
+    def _process(self):
+        if self.has_result:
+            return
+
+        while self.state is _wait:
+            self.state = next(self.gen)
+        while True:
+            if self.state is _get_output:
+                self._next_state(self.output)
+            elif self.state is _get_input:
+                self._next_state(self.input)
+            else:
+                break
 
     def _next_state(self, value=None):
         try:
@@ -118,22 +124,31 @@ class Consumer:
             raise NoResult
         return self.res
 
-    @_wait_before
     def read(self, nbytes=0):
-        while self.state is _get_output:
-            self._next_state(self.output)
-        return self.output.read(nbytes)
+        acc = io.BytesIO()
+        while True:
+            if nbytes == 0:
+                to_read = 0
+            else:
+                to_read = nbytes - acc.tell()
 
-    @_wait_before
+            acc.write(self.output.read(to_read))
+
+            if nbytes > 0 and acc.tell() == nbytes:
+                break
+
+            self._process()
+
+            if len(self.output) == 0:
+                break
+        return acc.getvalue()
+
     def send(self, data):
         self.input.write(data)
-        while self.state is _get_input:
-            self._next_state(self.input)
+        self._process()
 
     def is_consumed(self):
         return len(self.input) == 0
-
-    del _wait_before
 
 
 class _Action:
