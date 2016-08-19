@@ -74,7 +74,7 @@ class Buffer:
         return sum(len(d) for d in self.queue) - self.position
 
     def __repr__(self):
-        return '<{self.__class__} {self.queue!r}>'.format(self=self)
+        return '<{self.__class__.__name__} {self.queue!r} pos={self.position}>'.format(self=self)
 
 
 _no_result = object()
