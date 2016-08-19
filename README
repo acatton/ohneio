@@ -1,0 +1,46 @@
+Ohne I/O
+========
+
+Utility library to write network protocol parser, `sans I/O <https://sans-io.readthedocs.io/>`_.
+
+`Ohne <https://en.wiktionary.org/wiki/ohne#German>`_ I/O (without I/O in German) is a library using
+`asyncio <https://docs.python.org/3/library/asyncio.html>`_ corouting programming style.
+
+``ohneio`` allows you to write protocol parsers the way you would write an asyncio protocol::
+
+.. highlight:: python
+
+    >>> import base64
+    >>> import ohneio
+    >>>
+    >>> def wait_for(s):
+    ...     while True:
+    ...         data = yield from ohneio.peek()
+    ...         pos = data.find(s)
+    ...         if pos >= 0:
+    ...             return pos
+    ...         yield from ohneio.wait()
+    ...
+    >>> def read_until(s):
+    ...     pos = yield from wait_for(s)
+    ...     data = yield from ohneio.read(pos)
+    ...     return data
+    ...
+    >>> @ohneio.protocol
+    ... def echo_base64(separator):
+    ...     while True:
+    ...         segment = yield from read_until(separator)
+    ...         yield from ohneio.read(len(separator))
+    ...         yield from ohneio.write(base64.b64encode(segment) + separator)
+    ...
+    >>> connection = echo_base64(b'\r\n')
+    >>> connection.send(b'hello')
+    >>> connection.read()
+    b''
+    >>> connection.send(b'\r\nworld\r\n')
+    >>> connection.read()
+    b'aGVsbG8=\r\nd29ybGQ=\r\n'
+
+
+The example above also shows how ``ohneio`` allows you to combine primitives
+into bigger parsing functions (like ``wait_for`` and ``read_until``).
