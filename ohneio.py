@@ -190,14 +190,9 @@ def read(nbytes=0):
 def write(data):
     output = yield _get_output
     output.write(data)
-
-
-def flush():
-    while True:
-        output = yield _get_output
-        if len(output) == 0:
-            return
+    while len(output) != 0:
         yield _wait
+        output = yield _get_output
 
 
 def protocol(func):
