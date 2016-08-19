@@ -32,20 +32,23 @@ class Buffer:
             acc = io.BytesIO()
             q = self._get_queue()
             segments_read = 0
-            position = 0
+            position = self.position
+            to_read = nbytes
 
             while True:
                 try:
-                    read = acc.write(next(q))
+                    segment_len = acc.write(next(q))
+                    to_read -= segment_len
                     segments_read += 1
                 except StopIteration:
                     break
 
                 if acc.tell() >= nbytes:
-                    position = acc.tell() - nbytes
-                    if position != 0:
-                        position = read - position
+                    assert to_read <= 0
+                    position += segment_len + to_read
                     break
+
+                position = 0
 
             acc.seek(0)
             return segments_read, position, acc.read(nbytes)

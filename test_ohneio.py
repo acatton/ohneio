@@ -22,6 +22,25 @@ def test_buffer(read_len, write_len):
     assert len(buf.read(read_len)) == min(max(write_len - read_len, 0), read_len)
 
 
+def test_buffer_read_same_segment_multiple_times():
+    buf = ohneio.Buffer()
+    data = [b'Hello', b'world']
+    for segment in data:
+        buf.write(segment)
+    for b in b''.join(data):
+        assert buf.read(1) == bytes([b])
+
+
+def test_buffer_read_chunks_over_different_segments():
+    buf = ohneio.Buffer()
+    for segment in [b'Hello', b'World', b'No?']:
+        buf.write(segment)
+    assert buf.read(3) == b'Hel'
+    assert buf.read(3) == b'loW'
+    assert buf.read(3) == b'orl'
+    assert buf.read(4) == b'dNo?'
+
+
 @pytest.mark.parametrize('nbytes', BUFFER_SIZES)
 @pytest.mark.parametrize('data_len', BUFFER_SIZES)
 def test_echo_n_bytes(nbytes, data_len):
