@@ -65,16 +65,21 @@ def wait_for(s):
         yield from ohneio.wait()
 
 
+def read_until(s):
+    pos = yield from wait_for(LINE_SEPARATOR)
+    if pos > 0:
+        data = yield from ohneio.read(pos)
+    else:
+        data = b''
+    return data
+
+
 LINE_SEPARATOR = b'\n'
 
 
 @ohneio.protocol
 def line_reader():
-    pos = yield from wait_for(LINE_SEPARATOR)
-    if pos > 0:
-        line = yield from ohneio.read(pos)
-    else:
-        line = b''
+    line = yield from read_until(LINE_SEPARATOR)
     return line
 
 
@@ -94,3 +99,28 @@ def test_line_reader(segment_len, input_, expected):
 
     assert conn.has_result
     assert conn.get_result() == expected
+
+
+def test_line_reader_no_result():
+    conn = line_reader()
+    conn.send(b'hello')
+    assert not conn.has_result
+
+
+@ohneio.protocol
+def echo():
+    while True:
+        line = yield from read_until(LINE_SEPARATOR)
+        yield from ohneio.read(len(LINE_SEPARATOR))
+        yield from ohneio.write(line)
+        yield from ohneio.write(LINE_SEPARATOR)
+
+
+def test_echo():
+    conn = echo()
+    conn.send(b'hello')
+    assert conn.read() == b''
+    conn.send(b'\nworld')
+    assert conn.read() == b'hello\n'
+    conn.send(b'\nand the rest\n')
+    assert conn.read() == b'world\nand the rest\n'
