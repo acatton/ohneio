@@ -141,7 +141,7 @@ class _Action:
         self.name = name
 
     def __repr__(self):
-        return '<Action: {!r}'.format(self)
+        return '<Action: {!r}>'.format(self.name)
 
 
 _get_input = _Action('get_input')
