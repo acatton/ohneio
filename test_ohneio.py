@@ -16,7 +16,7 @@ def echo_n_bytes(nbytes):
 @pytest.mark.parametrize('write_len', BUFFER_SIZES)
 def test_buffer(read_len, write_len):
     buf = ohneio.Buffer()
-    data = b'\x00' * write_len
+    data = bytes(write_len)
     buf.write(data)
     assert len(buf.read(read_len)) == min(write_len, read_len)
     assert len(buf.read(read_len)) == min(max(write_len - read_len, 0), read_len)
