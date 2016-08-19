@@ -91,6 +91,9 @@ class Consumer:
         self.input = Buffer()
         self.output = Buffer()
         self.state = next(gen)
+        if not isinstance(self.state, _Action):
+            raise RuntimeError("Can't yield anything else than an action. Using `yield` instead "
+                               "`yield from`?")
         self.res = _no_result
 
     def _process(self):
@@ -98,7 +101,7 @@ class Consumer:
             return
 
         while self.state is _wait:
-            self.state = next(self.gen)
+            self.state = self._next_state(None)
         while True:
             if self.state is _get_output:
                 self._next_state(self.output)
@@ -110,6 +113,9 @@ class Consumer:
     def _next_state(self, value=None):
         try:
             self.state = self.gen.send(value)
+            if not isinstance(self.state, _Action):
+                raise RuntimeError("Can't yield anything else than an action. Using `yield` "
+                                   "instead `yield from`?")
         except StopIteration as e:
             self.state = _state_ended
             if len(e.args) > 0:
