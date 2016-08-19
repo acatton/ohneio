@@ -6,9 +6,9 @@ Utility library to write network protocol parser, `sans I/O <https://sans-io.rea
 `Ohne <https://en.wiktionary.org/wiki/ohne#German>`_ I/O (without I/O in German) is a library using
 `asyncio <https://docs.python.org/3/library/asyncio.html>`_ corouting programming style.
 
-``ohneio`` allows you to write protocol parsers the way you would write an asyncio protocol::
+``ohneio`` allows you to write protocol parsers the way you would write an asyncio protocol:
 
-.. highlight:: python
+.. code-block:: python
 
     >>> import base64
     >>> import ohneio
