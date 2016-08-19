@@ -11,7 +11,7 @@ def read(fname):
 
 
 setup(name="ohneio",
-      version="0.8-dev",
+      version="0.8",
       description="Utility to write network protocol parser without any I/O",
       long_description=read('README'),
       license='ISC',
