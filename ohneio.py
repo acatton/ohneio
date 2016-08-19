@@ -73,6 +73,9 @@ class Buffer:
     def __len__(self):
         return sum(len(d) for d in self.queue) - self.position
 
+    def __repr__(self):
+        return '<{self.__class__} {self.queue!r}>'.format(self=self)
+
 
 _no_result = object()
 _state_ended = object()
