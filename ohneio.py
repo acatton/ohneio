@@ -101,7 +101,7 @@ class Consumer:
             return
 
         while self.state is _wait:
-            self.state = self._next_state(None)
+            self._next_state()
         while True:
             if self.state is _get_output:
                 self._next_state(self.output)
