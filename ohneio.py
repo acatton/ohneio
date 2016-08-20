@@ -154,9 +154,6 @@ class Consumer:
         self.input.write(data)
         self._process()
 
-    def is_consumed(self):
-        return len(self.input) == 0
-
 
 class _Action:
     """Action yielded to the consumer.
