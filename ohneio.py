@@ -126,6 +126,7 @@ class Consumer:
         return self.res is not _no_result
 
     def get_result(self):
+        self._process()
         if not self.has_result:
             raise NoResult
         return self.res

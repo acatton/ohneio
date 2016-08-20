@@ -124,3 +124,15 @@ def test_echo():
     assert conn.read() == b'hello\n'
     conn.send(b'\nand the rest\n')
     assert conn.read() == b'world\nand the rest\n'
+
+
+@ohneio.protocol
+def hello():
+    yield from ohneio.write(b"Hello")
+    return "Hello"
+
+
+def test_get_result():
+    conn = hello()
+    assert conn.read(5) == b"Hello"
+    assert conn.get_result() == "Hello"
