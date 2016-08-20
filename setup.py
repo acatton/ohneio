@@ -24,6 +24,7 @@ setup(name="ohneio",
           "Intended Audience :: Telecommunications Industry",
           "License :: OSI Approved :: ISC License (ISCL)",
           "Operating System :: OS Independent",
+          "Programming Language :: Python :: 3.4",
           "Programming Language :: Python :: 3.5",
       ],
       )
