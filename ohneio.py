@@ -82,10 +82,17 @@ _state_ended = object()
 
 
 class NoResult(RuntimeError):
-    pass
+    """Raised when no result is available."""
 
 
 class Consumer:
+    """Protocol consumer
+
+    Allows the developer to send, read and get the result of protocol function.
+
+    This never needs to be instantiated, since this internally done by the :func:`~ohneio.protocol`
+    decorator.
+    """
     def __init__(self, gen):
         self.gen = gen
         self.input = Buffer()
@@ -123,15 +130,33 @@ class Consumer:
 
     @property
     def has_result(self):
+        """bool: Whether a result is available or not"""
         return self.res is not _no_result
 
     def get_result(self):
+        """Get the result from the protocol
+
+        Returns:
+            The object returned by the protocol.
+
+        Raises:
+            NoResult: When no result is available
+        """
         self._process()
         if not self.has_result:
             raise NoResult
         return self.res
 
     def read(self, nbytes=0):
+        """Read bytes from the output of the protocol.
+
+        Args:
+            nbytes: Read *at most* ``nbytes``, less bytes can be returned. If ``nbytes=0``
+                then all available bytes are read.
+
+        Returns:
+            bytes: bytes read
+        """
         acc = io.BytesIO()
         while True:
             if nbytes == 0:
@@ -151,6 +176,14 @@ class Consumer:
         return acc.getvalue()
 
     def send(self, data):
+        """Send data to the input of the protocol
+
+        Args:
+            bytes: data to send to the protocol
+
+        Returns:
+            None
+        """
         self.input.write(data)
         self._process()
 
@@ -175,15 +208,93 @@ _wait = _Action('wait')
 
 
 def peek(nbytes=0):
+    """Read output without consuming it.
+
+    Read but **does not** consume data from the protocol input.
+
+    This is a *non-blocking* primitive, if less data than requested is available,
+    less data is returned. It is meant to be used in combination with :func:`~ohneio.wait`, but
+    edge cases and smart people can (and most likely will) prove me wrong.
+
+    Args:
+        nbytes (:obj:`int`, optional): amount of bytes to read *at most*. ``0`` meaning all bytes.
+
+    Returns:
+        bytes: data read from the buffer
+    """
     input_ = yield _get_input
     return input_.peek(nbytes)
 
 
 def wait():
+    """Wait for any action to be triggered on the consumer.
+
+    This waits for any action to be triggered on the consumer, in most cases, this means more
+    input is available or some output has been consumed. *But, it could also mean that the result
+    of the protocol has been polled.* Therefore, it is always considered a good practice to wait
+    at the end of a loop, and execute your non-blocking primitive before.
+
+    Returns:
+        None
+
+    Example:
+        >>> def wait_for(b):
+        ...   while True:
+        ...     data = yield from peek()
+        ...     pos = data.find(b)
+        ...     if pos >= 0:
+        ...       return pos
+        ...     yield from wait()
+        ...
+        >>> @protocol
+        ... def linereader():
+        ...   pos = yield from wait_for(b'\\n')
+        ...   data = yield from read(pos)
+        ...   return data.decode('ascii')
+        ...
+        >>> conn = linereader()
+        >>> conn.send(b"Hello ")
+        >>> conn.has_result
+        False
+        >>> conn.read()
+        b''
+        >>> conn.send(b"World\\nRight?")
+        >>> conn.get_result()
+        'Hello World'
+    """
     yield _wait
 
 
 def read(nbytes=0):
+    """Read and consume data.
+
+    Read and consume data from the protocol input. And wait for it if an amount
+    of bytes is specified.
+
+    Args:
+        nbytes (:obj:`int`, optional): amount of bytes to read. If ``nbytes=0``, it reads all
+            data available in the buffer, and does not block. Therefore, it means if no data
+            is available, it will return 0 bytes.
+
+    Returns:
+        bytes: data read from the buffer.
+
+    Example:
+
+        >>> @protocol
+        ... def reader():
+        ...    data = yield from read()
+        ...    print("Read:", repr(data))
+        ...    data = yield from read(3)
+        ...    print("Read:", repr(data))
+        ...
+        >>> conn = reader()
+        >>> conn.send(b'Hello')
+        Read: b'Hello'
+        >>> conn.send(b'fo')
+        >>> conn.send(b'obar')
+        Read: b'foo'
+    """
     while True:
         input_ = yield _get_input
         if len(input_) >= nbytes:
@@ -192,6 +303,35 @@ def read(nbytes=0):
 
 
 def write(data):
+    """Write and flush data.
+
+    Write data to the protocol output, and wait for it to be entirely consumed.
+
+    *This is a generator function that has to be used with ``yield from``.*
+
+    Args:
+        data (bytes): data to write to the output.
+
+    Returns:
+        None: Only when the data has been entirely consumed.
+
+    Example:
+
+        >>> @protocol
+        ... def foo():
+        ...     yield from write(b'foo')
+        ...     return "Done!"
+        ...
+        >>> conn = foo()
+        >>> conn.read(1)
+        b'f'
+        >>> conn.has_result
+        False
+        >>> conn.read(2)
+        b'oo'
+        >>> conn.get_result()
+        'Done!'
+    """
     output = yield _get_output
     output.write(data)
     while len(output) != 0:
@@ -200,6 +340,16 @@ def write(data):
 
 
 def protocol(func):
+    """Wraps a Ohne I/O protocol function.
+
+    Under the hood this wraps the generator inside a :class:`~ohneio.Consumer`.
+
+    Args:
+        func (callable): Protocol function to wrap. (Protocol functions have to be generators)
+
+    Returns:
+        callable: wrapped function.
+    """
     if not callable(func):
         raise ValueError("A protocol needs to a be a callable")
     if not inspect.isgeneratorfunction(func):
