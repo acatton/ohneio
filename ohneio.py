@@ -78,16 +78,16 @@ class Buffer(typing.Sized):
         return '<{self.__class__.__name__} {self.queue!r} pos={self.position}>'.format(self=self)
 
 
-class NoResultType:
+class _NoResultType:
     pass
 
 
-class StateEndedType:
+class _StateEndedType:
     pass
 
 
-_no_result = NoResultType()
-_state_ended = StateEndedType()
+_no_result = _NoResultType()
+_state_ended = _StateEndedType()
 
 
 class NoResult(RuntimeError):
@@ -136,11 +136,11 @@ class Consumer(typing.Generic[S]):
         self.gen = gen
         self.input = Buffer()
         self.output = Buffer()
-        self.state = next(gen)  # type: typing.Union[_Action, StateEndedType]
+        self.state = next(gen)  # type: typing.Union[_Action, _StateEndedType]
         if not isinstance(self.state, _Action):
             raise RuntimeError("Can't yield anything else than an action. Using `yield` instead "
                                "`yield from`?")
-        self.res = _no_result  # type: typing.Union[S, NoResultType]
+        self.res = _no_result  # type: typing.Union[S, _NoResultType]
 
     def _process(self) -> None:
         if self.has_result:
@@ -184,7 +184,7 @@ class Consumer(typing.Generic[S]):
         self._process()
         if not self.has_result:
             raise NoResult
-        assert not isinstance(self.res, NoResultType)
+        assert not isinstance(self.res, _NoResultType)
         return self.res
 
     def read(self, nbytes: int=0) -> bytes:
