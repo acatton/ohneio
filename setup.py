@@ -12,7 +12,7 @@ def read(fname):
 
 
 install_requires = []
-if sys.version_info <= (3, 5):
+if sys.version_info < (3, 5):
     install_requires.append('typing')
 
 
