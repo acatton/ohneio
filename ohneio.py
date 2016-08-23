@@ -137,7 +137,8 @@ class Consumer(typing.Generic[S]):
         self.input = Buffer()
         self.output = Buffer()
         self.state = next(gen)  # type: typing.Union[_Action, _StateEndedType]
-        if not isinstance(self.state, _Action):
+        if not isinstance(self.state, _Action):  # pragma: no cover
+            # This is just a hint for users misusing the library.
             raise RuntimeError("Can't yield anything else than an action. Using `yield` instead "
                                "`yield from`?")
         self.res = _no_result  # type: typing.Union[S, _NoResultType]
@@ -159,7 +160,8 @@ class Consumer(typing.Generic[S]):
     def _next_state(self, value: typing.Union[Buffer, None]=None) -> None:
         try:
             self.state = self.gen.send(value)
-            if not isinstance(self.state, _Action):
+            if not isinstance(self.state, _Action):  # pragma: no cover
+                # This is just a hint for users misusing the library.
                 raise RuntimeError("Can't yield anything else than an action. Using `yield` "
                                    "instead `yield from`?")
         except StopIteration as e:
@@ -374,9 +376,11 @@ def protocol(func: typing.Callable[..., ProtocolGenerator[R]]) -> typing.Callabl
     Returns:
         callable: wrapped function.
     """
-    if not callable(func):
+    if not callable(func):  # pragma: no cover
+        # This is for users misusing the library, type hinting already checks this
         raise ValueError("A protocol needs to a be a callable")
-    if not inspect.isgeneratorfunction(func):
+    if not inspect.isgeneratorfunction(func):  # pragma: no cover
+        # This is for users misusing the library, type hinting already checks this
         raise ValueError("A protocol needs to be a generator function")
 
     @functools.wraps(func)

@@ -134,5 +134,7 @@ def hello():
 
 def test_get_result():
     conn = hello()
+    with pytest.raises(ohneio.NoResult):
+        conn.get_result()
     assert conn.read(5) == b"Hello"
     assert conn.get_result() == "Hello"
