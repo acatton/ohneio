@@ -2,17 +2,18 @@ import collections
 import functools
 import inspect
 import io
+import typing
 
 
-class Buffer:
-    def __init__(self):
-        self.queue = collections.deque()
+class Buffer(typing.Sized):
+    def __init__(self) -> None:
+        self.queue = collections.deque()  # type: collections.deque[bytes]
         self.position = 0
 
-    def write(self, chunk):
+    def write(self, chunk: bytes) -> None:
         self.queue.append(chunk)
 
-    def _get_queue(self):
+    def _get_queue(self) -> typing.Generator[bytes, typing.Any, typing.Any]:
         assert len(self.queue) > 0 or self.position == 0, ("We can't have a positive position "
                                                            "on an empty queue.")
 
@@ -25,7 +26,7 @@ class Buffer:
         else:
             yield from q
 
-    def _get_data(self, nbytes):
+    def _get_data(self, nbytes: int):
         if nbytes == 0:
             return len(self.queue), 0, b''.join(self._get_queue())
         else:
@@ -53,11 +54,11 @@ class Buffer:
             acc.seek(0)
             return segments_read, position, acc.read(nbytes)
 
-    def peek(self, nbytes=0):
+    def peek(self, nbytes: int=0) -> bytes:
         _, _, data = self._get_data(nbytes)
         return data
 
-    def read(self, nbytes=0):
+    def read(self, nbytes: int=0) -> bytes:
         segment_read, position, data = self._get_data(nbytes)
         if position > 0:
             segment_read -= 1
@@ -70,22 +71,60 @@ class Buffer:
 
         return data
 
-    def __len__(self):
+    def __len__(self) -> int:
         return sum(len(d) for d in self.queue) - self.position
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{self.__class__.__name__} {self.queue!r} pos={self.position}>'.format(self=self)
 
 
-_no_result = object()
-_state_ended = object()
+class NoResultType:
+    pass
+
+
+class StateEndedType:
+    pass
+
+
+_no_result = NoResultType()
+_state_ended = StateEndedType()
 
 
 class NoResult(RuntimeError):
     """Raised when no result is available."""
 
 
-class Consumer:
+class _Action:
+    """Action yielded to the consumer.
+
+    Actions yielded to the consumer could be `object()`, but this custom object
+    with a custom `repr()` ease debugging.
+    """
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def __repr__(self) -> str:
+        return '<Action: {!r}>'.format(self.name)
+
+
+_get_input = _Action('get_input')
+_get_output = _Action('get_output')
+_wait = _Action('wait')
+
+
+T = typing.TypeVar('T')
+
+
+class ProtocolGenerator(typing.Generator[_Action, typing.Union[None, Buffer], T],
+                        typing.Generic[T]):
+    pass
+
+
+S = typing.TypeVar('S')
+
+
+class Consumer(typing.Generic[S]):
     """Protocol consumer
 
     Allows the developer to send, read and get the result of protocol function.
@@ -93,17 +132,17 @@ class Consumer:
     This never needs to be instantiated, since this internally done by the :func:`~ohneio.protocol`
     decorator.
     """
-    def __init__(self, gen):
+    def __init__(self, gen: ProtocolGenerator[S]) -> None:
         self.gen = gen
         self.input = Buffer()
         self.output = Buffer()
-        self.state = next(gen)
+        self.state = next(gen)  # type: typing.Union[_Action, StateEndedType]
         if not isinstance(self.state, _Action):
             raise RuntimeError("Can't yield anything else than an action. Using `yield` instead "
                                "`yield from`?")
-        self.res = _no_result
+        self.res = _no_result  # type: typing.Union[S, NoResultType]
 
-    def _process(self):
+    def _process(self) -> None:
         if self.has_result:
             return
 
@@ -117,7 +156,7 @@ class Consumer:
             else:
                 break
 
-    def _next_state(self, value=None):
+    def _next_state(self, value: typing.Union[Buffer, None]=None) -> None:
         try:
             self.state = self.gen.send(value)
             if not isinstance(self.state, _Action):
@@ -129,11 +168,11 @@ class Consumer:
                 self.res = e.args[0]
 
     @property
-    def has_result(self):
+    def has_result(self) -> bool:
         """bool: Whether a result is available or not"""
         return self.res is not _no_result
 
-    def get_result(self):
+    def get_result(self) -> S:
         """Get the result from the protocol
 
         Returns:
@@ -145,9 +184,10 @@ class Consumer:
         self._process()
         if not self.has_result:
             raise NoResult
+        assert not isinstance(self.res, NoResultType)
         return self.res
 
-    def read(self, nbytes=0):
+    def read(self, nbytes: int=0) -> bytes:
         """Read bytes from the output of the protocol.
 
         Args:
@@ -175,7 +215,7 @@ class Consumer:
                 break
         return acc.getvalue()
 
-    def send(self, data):
+    def send(self, data: bytes) -> None:
         """Send data to the input of the protocol
 
         Args:
@@ -188,26 +228,7 @@ class Consumer:
         self._process()
 
 
-class _Action:
-    """Action yielded to the consumer.
-
-    Actions yielded to the consumer could be `object()`, but this custom object
-    with a custom `repr()` ease debugging.
-    """
-
-    def __init__(self, name):
-        self.name = name
-
-    def __repr__(self):
-        return '<Action: {!r}>'.format(self.name)
-
-
-_get_input = _Action('get_input')
-_get_output = _Action('get_output')
-_wait = _Action('wait')
-
-
-def peek(nbytes=0):
+def peek(nbytes=0) -> typing.Generator[_Action, Buffer, bytes]:
     """Read output without consuming it.
 
     Read but **does not** consume data from the protocol input.
@@ -226,7 +247,7 @@ def peek(nbytes=0):
     return input_.peek(nbytes)
 
 
-def wait():
+def wait() -> typing.Generator[_Action, None, None]:
     """Wait for any action to be triggered on the consumer.
 
     This waits for any action to be triggered on the consumer, in most cases, this means more
@@ -265,7 +286,7 @@ def wait():
     yield _wait
 
 
-def read(nbytes=0):
+def read(nbytes: int=0) -> typing.Generator[_Action, typing.Union[Buffer, None], bytes]:
     """Read and consume data.
 
     Read and consume data from the protocol input. And wait for it if an amount
@@ -302,7 +323,7 @@ def read(nbytes=0):
         yield from wait()
 
 
-def write(data):
+def write(data: bytes) -> typing.Generator[_Action, typing.Union[Buffer, None], None]:
     """Write and flush data.
 
     Write data to the protocol output, and wait for it to be entirely consumed.
@@ -339,7 +360,10 @@ def write(data):
         output = yield _get_output
 
 
-def protocol(func):
+R = typing.TypeVar('R')
+
+
+def protocol(func: typing.Callable[..., ProtocolGenerator[R]]) -> typing.Callable[..., Consumer[R]]:
     """Wraps a Ohne I/O protocol function.
 
     Under the hood this wraps the generator inside a :class:`~ohneio.Consumer`.
