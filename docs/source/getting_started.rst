@@ -99,7 +99,8 @@ be send back.
 Using a protocol
 ~~~~~~~~~~~~~~~~
 
-Now that you wrote your echo protocol
+Now that you wrote your echo protocol, you need to make it use the network, you
+can use any network library you want:
 
 
 Raw sockets
