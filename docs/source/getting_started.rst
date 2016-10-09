@@ -211,3 +211,39 @@ This example shows how to use Ohne I/O in combination with gevent library:
     if __name__ == '__main__':
         import sys
         echo_server(host=sys.argv[1], port=int(sys.argv[2]))
+
+
+``asyncio``
+^^^^^^^^^^^
+
+
+.. code-block:: python
+    :emphasize-lines: 7,10-11
+
+    import asyncio
+
+
+    class EchoProtocol(asyncio.Protocol):
+        def connection_made(self, transport):
+            self.transport = transport
+            self.ohneio = echo()
+
+        def data_received(self, data):
+            self.ohneio.send(data)
+            output = self.ohneio.read()
+            if output:
+                self.transport.write(output)
+
+
+
+    if __name__ == '__main__':
+        import sys
+        loop = asyncio.get_event_loop()
+        coro = loop.create_server(EchoProtocol, host=sys.argv[1], port=int(sys.argv[2]))
+        server = loop.run_until_complete(coro)
+        try:
+            loop.run_forever()
+        finally:
+            server.close()
+            loop.run_until_complete(server.wait_closed())
+            loop.close()
