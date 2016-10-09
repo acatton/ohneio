@@ -168,3 +168,46 @@ feeds the output of the Ohne I/O protocol to the socket.
     if __name__ == '__main__':
         import sys
         echo_server(host=sys.argv[1], port=sys.argv[2])
+
+
+``gevent``
+^^^^^^^^^^
+
+This example shows how to use Ohne I/O in combination with gevent library:
+
+.. code-block:: python
+
+    import gevent
+    from gevent.server import StreamServer
+
+
+    BUFFER_SIZE = 1024
+
+
+    def echo_server(host, port):
+        server = StreamServer((host, port), handle)
+        try:
+            server.serve_forever()
+        finally:
+            server.close()
+
+
+    def handle(socket, _):
+        conn = echo()
+        try:
+            while True:
+                data = socket.recv(BUFFER_SIZE)
+                if not data:
+                    break
+                conn.send(data)
+                data = conn.read()
+                if data:
+                    socket.send(data)
+                gevent.sleep(0)  # Prevent one green thread from taking over
+        finally:
+            socket.close()
+
+
+    if __name__ == '__main__':
+        import sys
+        echo_server(host=sys.argv[1], port=int(sys.argv[2]))
