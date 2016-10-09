@@ -3,7 +3,7 @@
 import os
 import sys
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 
 def read(fname):
@@ -24,7 +24,8 @@ setup(name="ohneio",
       author="Antoine Catton",
       author_email="devel@antoine.catton.fr",
       url="https://github.com/acatton/ohneio",
-      py_modules=['ohneio'],
+      packages=find_packages('src'),
+      package_dir={'': 'src'},
       install_requires=install_requires,
       classifiers=[
           "Intended Audience :: Developers",
@@ -33,5 +34,6 @@ setup(name="ohneio",
           "Operating System :: OS Independent",
           "Programming Language :: Python :: 3.4",
           "Programming Language :: Python :: 3.5",
+          "Programming Language :: Python :: 3.6",
       ],
       )

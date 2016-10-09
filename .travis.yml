@@ -1,9 +1,19 @@
 sudo: false
+
 language: python
+
 python:
   - "3.4"
   - "3.5"
   - "3.5-dev"
+  - "3.6"
+  - "3.6-dev"
+  - "3.7-dev"
   - "nightly"
-install: pip install tox-travis
-script: tox
+
+install:
+  - pip install -e .
+  - pip install pytest pytest-cov
+
+script:
+  - py.test --cov=src tests

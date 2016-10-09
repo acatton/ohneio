@@ -1,9 +1,18 @@
+# Compiled files
 *.py[cod]
+__pycache__
+
+# Packaging
 *.egg-info
-/.cache
 /dist
 /build
 /MANIFEST
+
+# Tests
+/.cache
 /.tox
 /htmlcov
 .coverage
+
+# Type hinting
+/.mypy_cache
