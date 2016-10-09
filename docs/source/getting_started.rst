@@ -176,6 +176,7 @@ feeds the output of the Ohne I/O protocol to the socket.
 This example shows how to use Ohne I/O in combination with gevent library:
 
 .. code-block:: python
+    :emphasize-lines: 17,23-24
 
     import gevent
     from gevent.server import StreamServer
@@ -192,7 +193,7 @@ This example shows how to use Ohne I/O in combination with gevent library:
             server.close()
 
 
-    def handle(socket, _):
+    def handle(socket, address):
         conn = echo()
         try:
             while True:
